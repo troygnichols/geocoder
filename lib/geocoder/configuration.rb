@@ -63,6 +63,7 @@ module Geocoder
     BASE_OPTIONS = [
       :lookup,
       :ip_lookup,
+      :allow_custom_lookup,
     ]
 
     OPTIONS = [
@@ -130,6 +131,7 @@ module Geocoder
       # base options
       self.lookup       = :google     # name of street address geocoding service (symbol)
       self.ip_lookup    = :freegeoip  # name of IP address geocoding service (symbol)
+      self.allow_custom_lookup = false       # allow custom names of geocoding services
 
       # (other) options
       self.timeout      = 3           # geocoding service timeout (secs)
