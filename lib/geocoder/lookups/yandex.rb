@@ -12,8 +12,8 @@ module Geocoder::Lookup
       "http://maps.yandex.ru/?ll=#{coordinates.reverse.join(',')}"
     end
 
-    def required_api_key_parts
-      ["key"]
+    def query_url(query)
+      "#{protocol}://geocode-maps.yandex.ru/1.x/?" + url_query_string(query)
     end
 
     private # ---------------------------------------------------------------
@@ -21,7 +21,11 @@ module Geocoder::Lookup
     def results(query)
       return [] unless doc = fetch_data(query)
       if err = doc['error']
-        warn "Yandex Geocoding API error: #{err['status']} (#{err['message']})."
+        if err["status"] == 401 and err["message"] == "invalid key"
+          raise_error(Geocoder::InvalidApiKey) || warn("Invalid API key.")
+        else
+          warn "Yandex Geocoding API error: #{err['status']} (#{err['message']})."
+        end
         return []
       end
       if doc = doc['response']['GeoObjectCollection']
@@ -39,16 +43,12 @@ module Geocoder::Lookup
       else
         q = query.sanitized_text
       end
-      super.merge(
+      {
         :geocode => q,
         :format => "json",
         :plng => "#{Geocoder::Configuration[lookup_name].language}", # supports ru, uk, be
         :key => Geocoder::Configuration[lookup_name].api_key
-      )
-    end
-
-    def query_url(query)
-      "#{protocol}://geocode-maps.yandex.ru/1.x/?" + url_query_string(query)
+      }.merge(super)
     end
   end
 end

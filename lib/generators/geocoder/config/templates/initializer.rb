@@ -1,7 +1,14 @@
 Geocoder.configure do |config|
-  ## Configurable parameters: if you wish to change some configurable
-  ## behaviour in Geocoder, feel free to uncomment the following lines
-  ## and provide custom parameters.
+  # geocoding options
+  # :timeout      => 3,           # geocoding service timeout (secs)
+  # :lookup       => :google,     # name of geocoding service (symbol)
+  # :language     => :en,         # ISO-639 language code
+  # :use_https    => false,       # use HTTPS for lookup requests? (if supported)
+  # :http_proxy   => nil,         # HTTP proxy server (user:pass@host:port)
+  # :https_proxy  => nil,         # HTTPS proxy server (user:pass@host:port)
+  # :api_key      => nil,         # API key for geocoding service
+  # :cache        => nil,         # cache object (must respond to #[], #[]=, and #keys)
+  # :cache_prefix => "geocoder:", # prefix (string) to use for all cache keys
 
   # config.timeout             = 3           # geocoding service timeout (secs)
   # config.lookup              = :google     # name of geocoding service (symbol)
@@ -24,4 +31,3 @@ Geocoder.configure do |config|
   # config.units     = :mi        # :km for kilometers or :mi for miles
   # config.distances = :linear    # :spherical or :linear
 end
-

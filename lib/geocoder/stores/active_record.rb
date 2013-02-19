@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 require 'geocoder/sql'
 require 'geocoder/stores/base'
 
@@ -87,19 +88,25 @@ module Geocoder::Store
       # * +:units+   - <tt>:mi</tt> or <tt>:km</tt>; to be used.
       #   for interpreting radius as well as the +distance+ attribute which
       #   is added to each found nearby object.
-      #   See Geocoder::Configuration to know how configure default units.
+      #   Use Geocoder.configure[:units] to configure default units.
       # * +:bearing+ - <tt>:linear</tt> or <tt>:spherical</tt>.
       #   the method to be used for calculating the bearing (direction)
       #   between the given point and each found nearby point;
-      #   set to false for no bearing calculation.
-      #   See Geocoder::Configuration to know how configure default method.
-      # * +:select+  - string with the SELECT SQL fragment (e.g. “id, name”)
-      # * +:order+   - column(s) for ORDER BY SQL clause; default is distance;
-      #                set to false or nil to omit the ORDER BY clause
-      # * +:exclude+ - an object to exclude (used by the +nearbys+ method)
+      #   set to false for no bearing calculation. Use
+      #   Geocoder.configure[:distances] to configure default calculation method.
+      # * +:select+          - string with the SELECT SQL fragment (e.g. “id, name”)
+      # * +:select_distance+ - whether to include the distance alias in the
+      #                        SELECT SQL fragment (e.g. <formula> AS distance)
+      # * +:select_bearing+  - like +:select_distance+ but for bearing.
+      # * +:order+           - column(s) for ORDER BY SQL clause; default is distance;
+      #                        set to false or nil to omit the ORDER BY clause
+      # * +:exclude+         - an object to exclude (used by the +nearbys+ method)
       #
       def near_scope_options(latitude, longitude, radius = 20, options = {})
-        options[:units] ||= (geocoder_options[:units] || Geocoder::Configuration.units)
+        options[:units] ||= (geocoder_options[:units] || Geocoder.config.units)
+        select_distance = options.fetch(:select_distance, true)
+        options[:order] = "" if !select_distance && !options.include?(:order)
+        select_bearing = options.fetch(:select_bearing, true)
         bearing = bearing_sql(latitude, longitude, options)
         distance = distance_sql(latitude, longitude, options)
 
@@ -116,7 +123,9 @@ module Geocoder::Store
           conditions = [bounding_box_conditions + " AND #{distance} <= ?", radius]
         end
         {
-          :select => select_clause(options[:select], distance, bearing),
+          :select => select_clause(options[:select],
+                                   select_distance ? distance : nil,
+                                   select_bearing ? bearing : nil),
           :conditions => add_exclude_condition(conditions, options[:exclude]),
           :order => options.include?(:order) ? options[:order] : "distance ASC"
         }
@@ -143,7 +152,7 @@ module Geocoder::Store
       #
       def bearing_sql(latitude, longitude, options = {})
         if !options.include?(:bearing)
-          options[:bearing] = Geocoder::Configuration.distances
+          options[:bearing] = Geocoder.config.distances
         end
         if options[:bearing]
           method_prefix = using_sqlite? ? "approx" : "full"
@@ -166,10 +175,17 @@ module Geocoder::Store
         elsif columns == :geo_only
           clause = ""
         else
-          clause = (columns || full_column_name("*")) + ", "
+          clause = (columns || full_column_name("*"))
         end
-        clause + "#{distance} AS distance" +
-          (bearing ? ", #{bearing} AS bearing" : "")
+        if distance
+          clause += ", " unless clause.empty?
+          clause += "#{distance} AS distance"
+        end
+        if bearing
+          clause += ", " unless clause.empty?
+          clause += "#{bearing} AS bearing"
+        end
+        clause
       end
 
       ##
@@ -241,4 +257,3 @@ module Geocoder::Store
     alias_method :fetch_address, :reverse_geocode
   end
 end
-

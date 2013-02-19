@@ -7,18 +7,20 @@ Geocoder is a complete geocoding solution for Ruby. With Rails it adds geocoding
 Compatibility
 -------------
 
-* Supports multiple Ruby versions: Ruby 1.8.7, 1.9.2, and JRuby.
+* Supports multiple Ruby versions: Ruby 1.8.7, 1.9.2, 1.9.3, and JRuby.
 * Supports multiple databases: MySQL, PostgreSQL, SQLite, and MongoDB (1.7.0 and higher).
-* Supports Rails 3. If you need to use it with Rails 2 please see the `rails2` branch (no longer maintained, limited feature set).
+* Supports Rails 3.x. If you need to use it with Rails 2 please see the `rails2` branch (no longer maintained, limited feature set).
 * Works very well outside of Rails, you just need to install either the `json` (for MRI) or `json_pure` (for JRuby) gem.
 
 
-Install
--------
+Installation
+------------
 
-### As a Gem
+Install Geocoder like any other Ruby gem:
 
-Add to your Gemfile:
+    gem install geocoder
+
+Or, if you're using Rails/Bundler, add this to your Gemfile:
 
     gem "geocoder"
 
@@ -26,21 +28,13 @@ and run at the command prompt:
 
     bundle install
 
-### Or As a Plugin
 
-At the command prompt:
-
-    rails plugin install git://github.com/alexreisner/geocoder.git
-
-
-Configure Object Geocoding
---------------------------
-
-In the below, note that addresses may be street or IP addresses.
+Object Geocoding
+----------------
 
 ### ActiveRecord
 
-Your model must have two attributes (database columns) for storing latitude and longitude coordinates. By default they should be called `latitude` and `longitude` but this can be changed (see "More on Configuration" below):
+Your model must have two attributes (database columns) for storing latitude and longitude coordinates. By default they should be called `latitude` and `longitude` but this can be changed (see "Model Configuration" below):
 
     rails generate migration AddLatitudeAndLongitudeToModel latitude:float longitude:float
     rake db:migrate
@@ -187,8 +181,8 @@ To calculate accurate distance and bearing with SQLite or MongoDB:
 The `bearing_from/to` methods take a single argument which can be: a `[lat,lon]` array, a geocoded object, or a geocodable address (string). The `distance_from/to` methods also take a units argument (`:mi` or `:km`).
 
 
-More on Configuration
----------------------
+Model Configuration
+-------------------
 
 You are not stuck with using the `latitude` and `longitude` database column names (with ActiveRecord) or the `coordinates` array (Mongo) for storing coordinates. For example:
 
@@ -295,7 +289,7 @@ In that case, you'll get results of the first one returning a non empty result s
       config[:geocoder_ca]timeout = 10
 
       # set default units to kilometers:
-      config.units = :km
+      config.units => :km
 
       # use https for geocoder_ca, not for google (for example purpose)
       config.use_https = false  # default value
@@ -305,14 +299,19 @@ In that case, you'll get results of the first one returning a non empty result s
       config[:google_premier].use_https = false
 
       # caching (see below for details):
-      config.cache = Redis.new
-      config.cache_prefix = "..."
+      config.cache => Redis.new,
+      config.cache_prefix => "..."
 
     end
 
-Please see lib/geocoder/configuration.rb for a complete list of configuration options. Additionally, some lookups have their own configuration options which are listed in the comparison chart below, and as of version 1.2.0 you can pass arbitrary parameters to any geocoding service. For example, to use Nominatim's `countrycodes` parameter:
+Please see lib/geocoder/configuration.rb for a complete list of configuration options. Additionally, some lookups have their own configuration options, some of which are directly supported by Geocoder. For example, to specify a value for Google's `bounds` parameter:
 
-    Geocoder::Configuration.lookup = :nominatim
+    # with Google:
+    Geocoder.search("Paris", :bounds => [[32.1,-95.9], [33.9,-94.3]])
+
+Please see the [source code for each lookup](https://github.com/alexreisner/geocoder/tree/master/lib/geocoder/lookups) to learn about directly supported parameters. Parameters which are not directly supported can be specified using the `:params` option, by which you can pass arbitrary parameters to any geocoding service. For example, to use Nominatim's `countrycodes` parameter:
+
+    # with Nominatim:
     Geocoder.search("Paris", :params => {:countrycodes => "gb,de,fr,es,us"})
 
 
@@ -332,13 +331,13 @@ The following is a comparison of the supported geocoding APIs. The "Limitations"
 * **Documentation**: http://code.google.com/apis/maps/documentation/geocoding/#JSON
 * **Terms of Service**: http://code.google.com/apis/maps/terms.html#section_10_12
 * **Limitations**: "You must not use or display the Content without a corresponding Google map, unless you are explicitly permitted to do so in the Maps APIs Documentation, or through written permission from Google." "You must not pre-fetch, cache, or store any Content, except that you may store: (i) limited amounts of Content for the purpose of improving the performance of your Maps API Implementation..."
-* **Notes**: To use Google Premier set `Geocoder::Configuration.lookup = :google_premier` and `Geocoder::Configuration.api_key = [key, client, channel]`.
+* **Notes**: To use Google Premier set `Geocoder.configure(:lookup => :google_premier, :api_key => [key, client, channel])`.
 
 #### Yahoo BOSS (`:yahoo`)
 
 Yahoo BOSS is **not a free service**. As of November 17, 2012 Yahoo no longer offers a free geocoding API.
 
-* **API key**: requires OAuth consumer key and secret (set `Geocoder::Configuration.api_key = [key, secret]`)
+* **API key**: requires OAuth consumer key and secret (set `Geocoder.configure(:api_key => [key, secret])`)
 * **Key signup**: http://developer.yahoo.com/boss/geo/
 * **Quota**: unlimited, but subject to usage fees
 * **Region**: world
@@ -398,13 +397,24 @@ Yahoo BOSS is **not a free service**. As of November 17, 2012 Yahoo no longer of
 * **API key**: required for the licensed API, do not use for open tier
 * **Quota**: ?
 * **HTTP Headers**: in order to use the licensed API you can configure the http_headers to include a referer as so:
-    `Geocoder::Configuration.http_headers = { "Referer" => "http://foo.com" }`
+    `Geocoder.configure(:http_headers => { "Referer" => "http://foo.com" })`
   You can also allow a blank referer from the API management console via mapquest but it is potentially a security risk that someone else could use your API key from another domain.
 * **Region**: world
 * **SSL support**: no
 * **Languages**: English
 * **Documentation**: http://www.mapquestapi.com/geocoding/
 * **Terms of Service**: http://info.mapquest.com/terms-of-use/
+* **Limitations**: ?
+
+#### Ovi/Nokia (`:ovi`)
+
+* **API key**: not required, but performance restricted without it
+* **Quota**: ?
+* **Region**: world
+* **SSL support**: no
+* **Languages**: English
+* **Documentation**: http://api.maps.ovi.com/devguide/overview.html
+* **Terms of Service**: http://www.developer.nokia.com/Develop/Maps/TC.html
 * **Limitations**: ?
 
 #### FreeGeoIP (`:freegeoip`)
@@ -417,6 +427,18 @@ Yahoo BOSS is **not a free service**. As of November 17, 2012 Yahoo no longer of
 * **Documentation**: http://github.com/fiorix/freegeoip/blob/master/README.rst
 * **Terms of Service**: ?
 * **Limitations**: ?
+
+#### MaxMind Web Services (`:maxmind`)
+
+* **API key**: required
+* **Quota**: Request Packs can be purchased
+* **Region**: world
+* **SSL support**: yes
+* **Languages**: English
+* **Documentation**: http://www.maxmind.com/app/web_services
+* **Terms of Service**: ?
+* **Limitations**: ?
+
 
 #### Custom service (`:example`)
 
@@ -432,71 +454,77 @@ That's the case in the following example, we want to search in a local database 
 
 Define your **Geocoder::Lookup** class to access the data
 
-    # lib/geocoder/lookup/geonames_dumped.rb
-    module Geocoder::Lookup
-      class GeonamesDumped < Base
-    
-        private
-    
-        def results(query)
-          # ... perform the search in your database
-          MyModel.where(...)
-          # or create a scope which separate country, city, ...
-          MyModel.search(...)
-        end
-    
-      end
+```
+# lib/geocoder/lookup/geonames_dumped.rb
+module Geocoder::Lookup
+  class GeonamesDumped < Base
+
+    private
+
+    def results(query)
+      # ... perform the search in your database
+      MyModel.where(...)
+      # or create a scope which separate country, city, ...
+      MyModel.search(...)
     end
+
+  end
+end
+```
 
 Define your **Geocoder::Result** class to return the result in a standard way
 
-    # lib/geocoder/result/geonames_dumped.rb
-    module Geocoder::Result
-      class GeonamesDumped < Base
+```
+# lib/geocoder/result/geonames_dumped.rb
+module Geocoder::Result
+  class GeonamesDumped < Base
 
-        ##
-        # Add the methods to handle your data and return the appropriate fields
-        #
-    
-        def coordinates
-        end
-    
-        def address(format = :full)
-        end
-    
-        def street_address
-        end
-    
-        def city
-        end
-    
-        def state
-        end
-    
-        def state_code
-        end
-    
-        def postal_code
-        end
-    
-        def country
-        end
-    
-        def country_code
-        end
-    
-      end
+    ##
+    # Add the methods to handle your data and return the appropriate fields
+    #
+
+    def coordinates
     end
+
+    def address(format = :full)
+    end
+
+    def street_address
+    end
+
+    def city
+    end
+
+    def state
+    end
+
+    def state_code
+    end
+
+    def postal_code
+    end
+
+    def country
+    end
+
+    def country_code
+    end
+
+  end
+end
+```
 
 Select your new geocoding service in the configuration
 
-    # config/initializers/geocoder.rb
-    Geocoder.configure do |config|
-      # ...
-      config.lookup              = :geonames_dumped     # name of your custom geocoding service (symbol)
-      config.allow_custom_lookup = true                 # allow custom services
-      # ...
-    end
+```
+# config/initializers/geocoder.rb
+Geocoder.configure do |config|
+  # ...
+  config.lookup              = :geonames_dumped     # name of your custom geocoding service (symbol)
+  config.allow_custom_lookup = true                 # allow custom services
+  # ...
+end
+```
 
 If you're using Rails, do not forget to load your classes. To do this, simply add : 
 
@@ -509,7 +537,7 @@ Caching
 
 It's a good idea, when relying on any external service, to cache retrieved data. When implemented correctly it improves your app's response time and stability. It's easy to cache geocoding results with Geocoder, just configure a cache store:
 
-    Geocoder::Configuration.cache = Redis.new
+    Geocoder.configure(:cache => Redis.new)
 
 This example uses Redis, but the cache store can be any object that supports these methods:
 
@@ -522,7 +550,7 @@ Even a plain Ruby hash will work, though it's not a great choice (cleared out wh
 
 You can also set a custom prefix to be used for cache keys:
 
-    Geocoder::Configuration.cache_prefix = "..."
+    Geocoder.configure(:cache_prefix => "...")
 
 By default the prefix is `geocoder:`
 
@@ -578,7 +606,7 @@ You can use Geocoder outside of Rails by calling the `Geocoder.search` method:
 
     results = Geocoder.search("McCarren Park, Brooklyn, NY")
 
-This returns an array of `Geocoder::Result` objects with all information provided by the geocoding service. Please see above and in the code for details.
+This returns an array of `Geocoder::Result` objects with all data provided by the geocoding service.
 
 
 Testing Apps that Use Geocoder
@@ -586,7 +614,7 @@ Testing Apps that Use Geocoder
 
 When writing tests for an app that uses Geocoder it may be useful to avoid network calls and have Geocoder return consistent, configurable results. To do this, configure and use the `:test` lookup. For example:
 
-    Geocoder::Configuration.lookup = :test
+    Geocoder.configure(:lookup => :test)
 
     Geocoder::Lookup::Test.add_stub(
       "New York, NY", [
@@ -690,15 +718,24 @@ http://github.com/alexreisner/geocoder_test
 Error Handling
 --------------
 
-By default Geocoder will rescue any exceptions raised by calls to the geocoding service and return an empty array (using warn() to inform you of the error). You can override this and implement custom error handling for certain exceptions by using the `:always_raise` option:
+By default Geocoder will rescue any exceptions raised by calls to a geocoding service and return an empty array (using warn() to inform you of the error). You can override this on a per-exception basis, and also have Geocoder raise its own exceptions for certain events (eg: API quota exceeded) by using the `:always_raise` option:
 
-    Geocoder::Configuration.always_raise = [SocketError, TimeoutError]
+    Geocoder.configure(:always_raise => [SocketError, TimeoutError])
 
 You can also do this to raise all exceptions:
 
-    Geocoder::Configuration.always_raise = :all
+    Geocoder.configure(:always_raise => :all)
 
-See `lib/geocoder/exceptions.rb` for a list of raise-able exceptions.
+The raise-able exceptions are:
+
+    SocketError
+    TimeoutError
+    Geocoder::OverQueryLimitError
+    Geocoder::RequestDenied
+    Geocoder::InvalidRequest
+    Geocoder::InvalidApiKey
+
+Note that not all lookups support all exceptions.
 
 
 Troubleshooting

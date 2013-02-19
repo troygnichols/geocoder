@@ -11,10 +11,11 @@ module Geocoder
         :yandex,
         :nominatim,
         :mapquest,
+        :ovi,
         :test
       ]
 
-    INCLUDED_IP_SERVICES = [:freegeoip]
+    INCLUDED_IP_SERVICES = [:freegeoip, :maxmind]
 
     ##
     # Array of valid Lookup service names.

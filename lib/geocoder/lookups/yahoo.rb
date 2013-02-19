@@ -17,6 +17,14 @@ module Geocoder::Lookup
       ["consumer key", "consumer secret"]
     end
 
+    def query_url(query)
+      parsed_url = URI.parse(raw_url(query))
+      o = OauthUtil.new
+      o.consumer_key = Geocoder::Configuration[lookup_name].api_key[0]
+      o.consumer_secret = Geocoder::Configuration[lookup_name].api_key[1]
+      base_url + o.sign(parsed_url).query_string
+    end
+
     private # ---------------------------------------------------------------
 
     def results(query)
@@ -34,12 +42,31 @@ module Geocoder::Lookup
       end
     end
 
+    ##
+    # Yahoo returns errors as XML even when JSON format is specified.
+    # Handle that here, without parsing the XML
+    # (which would add unnecessary complexity).
+    #
+    def parse_raw_data(raw_data)
+      if raw_data.match /^<\?xml/
+        if raw_data.include?("Rate Limit Exceeded")
+          raise_error(Geocoder::OverQueryLimitError) || warn("Over API query limit.")
+        elsif raw_data.include?("Please provide valid credentials")
+          raise_error(Geocoder::InvalidApiKey) || warn("Invalid API key.")
+        end
+      else
+        super(raw_data)
+      end
+    end
+
     def query_url_params(query)
-      super.merge(
+      {
         :location => query.sanitized_text,
         :flags => "JXTSR",
-        :gflags => "AC#{'R' if query.reverse_geocode?}"
-      )
+        :gflags => "AC#{'R' if query.reverse_geocode?}",
+        :locale => "#{configuration.language}_US",
+        :appid => configuration.api_key
+      }.merge(super)
     end
 
     def cache_key(query)
@@ -54,12 +81,5 @@ module Geocoder::Lookup
       base_url + url_query_string(query)
     end
 
-    def query_url(query)
-      parsed_url = URI.parse(raw_url(query))
-      o = OauthUtil.new
-      o.consumer_key = Geocoder::Configuration[lookup_name].api_key[0]
-      o.consumer_secret = Geocoder::Configuration[lookup_name].api_key[1]
-      base_url + o.sign(parsed_url).query_string
-    end
   end
 end

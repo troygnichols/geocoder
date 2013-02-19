@@ -10,10 +10,8 @@ module Geocoder::Lookup
     end
 
     def required_api_key_parts
-      ["key"]
+      []
     end
-
-    private # ---------------------------------------------------------------
 
     def query_url(query)
       key = Geocoder::Configuration[lookup_name].api_key
@@ -22,17 +20,18 @@ module Geocoder::Lookup
       url + url_query_string(query)
     end
 
+    private # ---------------------------------------------------------------
+
     def search_type(query)
       query.reverse_geocode? ? "reverse" : "address"
     end
 
     def query_url_params(query)
-      key = Geocoder::Configuration[lookup_name].api_key
       params = { :location => query.sanitized_text }
-      if key
+      if key = Geocoder::Configuration[lookup_name].api_key
         params[:key] = CGI.unescape(key)
       end
-      super.merge(params)
+      params.merge(super)
     end
 
     def results(query)

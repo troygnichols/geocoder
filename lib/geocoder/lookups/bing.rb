@@ -16,30 +16,32 @@ module Geocoder::Lookup
       ["key"]
     end
 
+    def query_url(query)
+      "#{protocol}://dev.virtualearth.net/REST/v1/Locations" +
+        (query.reverse_geocode? ? "/#{query.sanitized_text}?" : "?") +
+        url_query_string(query)
+    end
+
     private # ---------------------------------------------------------------
 
     def results(query)
       return [] unless doc = fetch_data(query)
 
-      if doc['statusDescription'] == "OK"
+      if doc['statusCode'] == 200
         return doc['resourceSets'].first['estimatedTotal'] > 0 ? doc['resourceSets'].first['resources'] : []
+      elsif doc['statusCode'] == 401 and doc["authenticationResultCode"] == "InvalidCredentials"
+        raise_error(Geocoder::InvalidApiKey) || warn("Invalid Bing API key.")
       else
         warn "Bing Geocoding API error: #{doc['statusCode']} (#{doc['statusDescription']})."
-        return []
       end
+      return []
     end
 
     def query_url_params(query)
-      super.merge(
+      {
         :key => Geocoder::Configuration[lookup_name].api_key,
         :query => query.reverse_geocode? ? nil : query.sanitized_text
-      )
-    end
-
-    def query_url(query)
-      "#{protocol}://dev.virtualearth.net/REST/v1/Locations" +
-        (query.reverse_geocode? ? "/#{query.sanitized_text}?" : "?") +
-        url_query_string(query)
+      }.merge(super)
     end
   end
 end

@@ -13,34 +13,33 @@ module Geocoder
         opts.separator "\nOptions: "
 
         opts.on("-k <key>", "--key <key>",
-          "Key for geocoding API (optional for most). For Google Premier use 'key client channel' separated by spaces") do |key|
-          premier_key = key.split(' ')
-          if premier_key.length == 3
-            Geocoder::Configuration.api_key = premier_key
+          "Key for geocoding API (usually optional). Enclose multi-part keys in quotes and separate parts by spaces") do |key|
+          if (key_parts = key.split(/\s+/)).size > 1
+            Geocoder.configure(:api_key => key_parts)
           else
-            Geocoder::Configuration.api_key = key
+            Geocoder.configure(:api_key => key)
           end
         end
 
         opts.on("-l <language>", "--language <language>",
           "Language of output (see API docs for valid choices)") do |language|
-          Geocoder::Configuration.language = language
+          Geocoder.configure(:language => language)
         end
 
         opts.on("-p <proxy>", "--proxy <proxy>",
           "HTTP proxy server to use (user:pass@host:port)") do |proxy|
-          Geocoder::Configuration.http_proxy = proxy
+          Geocoder.configure(:http_proxy => proxy)
         end
 
         opts.on("-s <service>", Geocoder::Lookup.all_services_except_test, "--service <service>",
           "Geocoding service: #{Geocoder::Lookup.all_services_except_test * ', '}") do |service|
-          Geocoder::Configuration.lookup = service.to_sym
-          Geocoder::Configuration.ip_lookup = service.to_sym
+          Geocoder.configure(:lookup => service.to_sym)
+          Geocoder.configure(:ip_lookup => service.to_sym)
         end
 
         opts.on("-t <seconds>", "--timeout <seconds>",
           "Maximum number of seconds to wait for API response") do |timeout|
-          Geocoder::Configuration.timeout = timeout.to_i
+          Geocoder.configure(:timeout => timeout.to_i)
         end
 
         opts.on("-j", "--json", "Print API's raw JSON response") do
@@ -80,7 +79,7 @@ module Geocoder
 
       if show_url
         q = Geocoder::Query.new(query)
-        out << q.lookup.send(:query_url, q) + "\n"
+        out << q.url + "\n"
         exit 0
       end
 

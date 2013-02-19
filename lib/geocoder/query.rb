@@ -46,17 +46,20 @@ module Geocoder
       names.collect { |name| Lookup.get(name) }
     end
 
+    def url
+      lookup.query_url(self)
+    end
+
     ##
-    # Is the Query text blank? (ie, should we not bother searching?)
+    # Is the Query blank? (ie, should we not bother searching?)
+    # A query is considered blank if its text is nil or empty string AND
+    # no URL parameters are specified.
     #
     def blank?
-      # check whether both coordinates given
-      if text.is_a?(Array)
-        text.compact.size < 2
-      # else assume a string
-      else
-        !!text.to_s.match(/^\s*$/)
-      end
+      !params_given? and (
+        (text.is_a?(Array) and text.compact.size < 2) or
+        text.to_s.match(/\A\s*\z/)
+      )
     end
 
     ##
@@ -66,14 +69,14 @@ module Geocoder
     # dot-delimited numbers.
     #
     def ip_address?
-      !!text.to_s.match(/^(::ffff:)?(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/)
+      !!text.to_s.match(/\A(::ffff:)?(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\z/)
     end
 
     ##
     # Is the Query text a loopback IP address?
     #
     def loopback_ip_address?
-      !!(text == "0.0.0.0" or text.to_s.match(/^127/))
+      !!(self.ip_address? and (text == "0.0.0.0" or text.to_s.match(/\A127/)))
     end
 
     ##
@@ -82,7 +85,7 @@ module Geocoder
     def coordinates?
       text.is_a?(Array) or (
         text.is_a?(String) and
-        !!text.to_s.match(/^-?[0-9\.]+, *-?[0-9\.]+$/)
+        !!text.to_s.match(/\A-?[0-9\.]+, *-?[0-9\.]+\z/)
       )
     end
 
@@ -99,6 +102,12 @@ module Geocoder
     #
     def reverse_geocode?
       coordinates?
+    end
+
+    private # ----------------------------------------------------------------
+
+    def params_given?
+      !!(options[:params].is_a?(Hash) and options[:params].keys.size > 0)
     end
   end
 end

@@ -14,6 +14,13 @@ module Geocoder
   end
 
   ##
+  # Read-only access to the singleton's config data.
+  #
+  def self.config
+    Configuration.instance
+  end
+
+  ##
   # Provides an easy way to access to a parametrized configuration
   #
   class ConfigHash

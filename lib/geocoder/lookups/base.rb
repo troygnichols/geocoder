@@ -24,6 +24,14 @@ module Geocoder
       end
 
       ##
+      # Symbol which is used in configuration to refer to this Lookup.
+      #
+      def handle
+        str = self.class.to_s
+        str[str.rindex(':')+1..-1].gsub(/([a-z\d]+)([A-Z])/,'\1_\2').downcase.to_sym
+      end
+
+      ##
       # Query the geocoding API and return a Geocoder::Result object.
       # Returns +nil+ on timeout or error.
       #
@@ -58,8 +66,21 @@ module Geocoder
         []
       end
 
+      ##
+      # URL to use for querying the geocoding engine.
+      #
+      def query_url(query)
+        fail
+      end
 
       private # -------------------------------------------------------------
+
+      ##
+      # An object with configuration data for this particular lookup.
+      #
+      def configuration
+        Geocoder::Configuration[lookup_name]
+      end
 
       ##
       # Object used to make HTTP requests.
@@ -96,13 +117,6 @@ module Geocoder
         hash_to_query(
           query_url_params(query).reject{ |key,value| value.nil? }
         )
-      end
-
-      ##
-      # URL to use for querying the geocoding engine.
-      #
-      def query_url(query)
-        fail
       end
 
       ##
@@ -206,6 +220,7 @@ module Geocoder
           client = http_client.new(uri.host, uri.port)
           client.use_ssl = true if Geocoder::Configuration[lookup_name].use_https
           client.get(uri.request_uri, Geocoder::Configuration[lookup_name].http_headers)
+
         end
       end
 
@@ -225,7 +240,10 @@ module Geocoder
       # The working Cache object.
       #
       def cache
-        Geocoder.cache
+        if @cache.nil? and store = configuration.cache
+          @cache = Cache.new(store, configuration.cache_prefix)
+        end
+        @cache
       end
 
       ##
