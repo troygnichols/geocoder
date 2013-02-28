@@ -16,15 +16,22 @@ module Geocoder::Store
       base.extend ClassMethods
       base.class_eval do
 
+        # scope: joins table if necessary
+        scope :joins_through, lambda {
+          joins(geocoder_options[:through].name) unless geocoder_options[:through].nil?
+        }
+
         # scope: geocoded objects
         scope :geocoded, lambda {
-          {:conditions => "#{geocoder_options[:latitude]} IS NOT NULL " +
-            "AND #{geocoder_options[:longitude]} IS NOT NULL"}}
+          joins_through.where("#{geocoder_options[:latitude]} IS NOT NULL " +
+            "AND #{geocoder_options[:longitude]} IS NOT NULL")
+        }
 
         # scope: not-geocoded objects
         scope :not_geocoded, lambda {
-          {:conditions => "#{geocoder_options[:latitude]} IS NULL " +
-            "OR #{geocoder_options[:longitude]} IS NULL"}}
+          joins_through.where("#{geocoder_options[:latitude]} IS NULL " +
+            "AND #{geocoder_options[:longitude]} IS NULL")
+        }
 
         ##
         # Find all objects within a radius of the given location.
@@ -36,12 +43,12 @@ module Geocoder::Store
         scope :near, lambda{ |location, *args|
           latitude, longitude = Geocoder::Calculations.extract_coordinates(location)
           if Geocoder::Calculations.coordinates_present?(latitude, longitude)
-            near_scope_options(latitude, longitude, *args)
+            near_scope_options(latitude, longitude, *args).joins_through
           else
             # If no lat/lon given we don't want any results, but we still
             # need distance and bearing columns so you can add, for example:
             # .order("distance")
-            select(select_clause(nil, "NULL", "NULL")).where(false_condition)
+            joins_through.select(select_clause(nil, "NULL", "NULL")).where(false_condition)
           end
         }
 
@@ -54,13 +61,13 @@ module Geocoder::Store
         scope :within_bounding_box, lambda{ |bounds|
           sw_lat, sw_lng, ne_lat, ne_lng = bounds.flatten if bounds
           if sw_lat && sw_lng && ne_lat && ne_lng
-            {:conditions => Geocoder::Sql.within_bounding_box(
+            joins_through.where(Geocoder::Sql.within_bounding_box(
               sw_lat, sw_lng, ne_lat, ne_lng,
-              full_column_name(geocoder_options[:latitude]),
-              full_column_name(geocoder_options[:longitude])
-            )}
+              full_column_name(geocoder_options[:latitude], geocoder_options[:through]),
+              full_column_name(geocoder_options[:longitude], geocoder_options[:through])
+            ))
           else
-            select(select_clause(nil, "NULL", "NULL")).where(false_condition)
+            joins_through.select(select_clause(nil, "NULL", "NULL")).where(false_condition)
           end
         }
       end
@@ -112,8 +119,8 @@ module Geocoder::Store
 
         b = Geocoder::Calculations.bounding_box([latitude, longitude], radius, options)
         args = b + [
-          full_column_name(geocoder_options[:latitude]),
-          full_column_name(geocoder_options[:longitude])
+          full_column_name(geocoder_options[:latitude], geocoder_options[:through]),
+          full_column_name(geocoder_options[:longitude], geocoder_options[:through])
         ]
         bounding_box_conditions = Geocoder::Sql.within_bounding_box(*args)
 
@@ -122,13 +129,10 @@ module Geocoder::Store
         else
           conditions = [bounding_box_conditions + " AND #{distance} <= ?", radius]
         end
-        {
-          :select => select_clause(options[:select],
-                                   select_distance ? distance : nil,
-                                   select_bearing ? bearing : nil),
-          :conditions => add_exclude_condition(conditions, options[:exclude]),
-          :order => options.include?(:order) ? options[:order] : "distance ASC"
-        }
+
+        select(select_clause(options[:select], select_distance ? distance : nil, select_bearing ? bearing : nil))
+          .where(add_exclude_condition(conditions, options[:exclude]))        
+          .order(options.include?(:order) ? options[:order] : "distance ASC")
       end
 
       ##
@@ -140,8 +144,8 @@ module Geocoder::Store
         Geocoder::Sql.send(
           method_prefix + "_distance",
           latitude, longitude,
-          full_column_name(geocoder_options[:latitude]),
-          full_column_name(geocoder_options[:longitude]),
+          full_column_name(geocoder_options[:latitude], geocoder_options[:through]),
+          full_column_name(geocoder_options[:longitude], geocoder_options[:through]),
           options
         )
       end
@@ -159,8 +163,8 @@ module Geocoder::Store
           Geocoder::Sql.send(
             method_prefix + "_bearing",
             latitude, longitude,
-            full_column_name(geocoder_options[:latitude]),
-            full_column_name(geocoder_options[:longitude]),
+            full_column_name(geocoder_options[:latitude], geocoder_options[:through]),
+            full_column_name(geocoder_options[:longitude], geocoder_options[:through]),
             options
           )
         end
@@ -175,7 +179,16 @@ module Geocoder::Store
         elsif columns == :geo_only
           clause = ""
         else
-          clause = (columns || full_column_name("*"))
+          if columns
+            clause = columns
+          else
+            clause_arr = [full_column_name('*')]
+            unless geocoder_options[:through].nil?
+              clause_arr << full_column_name(geocoder_options[:latitude], geocoder_options[:through])
+              clause_arr << full_column_name(geocoder_options[:longitude], geocoder_options[:through])
+            end
+            clause = clause_arr.join(',')
+          end
         end
         if distance
           clause += ", " unless clause.empty?
@@ -215,9 +228,10 @@ module Geocoder::Store
       ##
       # Prepend table name if column name doesn't already contain one.
       #
-      def full_column_name(column)
+      def full_column_name(column, through_table = nil)
         column = column.to_s
-        column.include?(".") ? column : [table_name, column].join(".")
+        through_table_name = through_table.nil? ? table_name : through_table.name.to_s.pluralize
+        column.include?(".") ? column : [through_table_name, column].join(".")
       end
     end
 
@@ -226,11 +240,12 @@ module Geocoder::Store
     # (or other as specified in +geocoded_by+). Returns coordinates (array).
     #
     def geocode
+      target = self.class.geocoder_options[:through].nil? ? self : self.send(self.class.geocoder_options[:through].name)
       do_lookup(false) do |o,rs|
         if r = rs.first
           unless r.latitude.nil? or r.longitude.nil?
-            o.__send__  "#{self.class.geocoder_options[:latitude]}=",  r.latitude
-            o.__send__  "#{self.class.geocoder_options[:longitude]}=", r.longitude
+            o.__send__  "#{target.class.geocoder_options[:latitude]}=",  r.latitude
+            o.__send__  "#{target.class.geocoder_options[:longitude]}=", r.longitude
           end
           r.coordinates
         end

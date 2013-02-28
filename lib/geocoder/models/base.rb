@@ -26,6 +26,10 @@ module Geocoder
         fail
       end
 
+      def geocoded_through(assoc_name)
+        fail
+      end
+
       private # ----------------------------------------------------------------
 
       def geocoder_init(options)
@@ -39,4 +43,3 @@ module Geocoder
     end
   end
 end
-
