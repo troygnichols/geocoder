@@ -51,6 +51,17 @@ For reverse geocoding, tell Geocoder which attributes store latitude and longitu
     reverse_geocoded_by :latitude, :longitude
     after_validation :reverse_geocode  # auto-fetch address
 
+To specify that model is geocoded through a :belongs_to association :
+
+    belongs_to :user
+    geocoded_through :user
+
+You may have many models concerned
+
+    Page --> Account --> User
+
+In that example `Page` is `geocoded_through :account` and `Account` is `geocoded_through :user`
+
 ### Mongoid
 
 First, your model must have an array field for storing coordinates:
