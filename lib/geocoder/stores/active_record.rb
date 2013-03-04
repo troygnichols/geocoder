@@ -16,9 +16,34 @@ module Geocoder::Store
       base.extend ClassMethods
       base.class_eval do
 
+        def self.through_tables
+          tbls = nil
+          unless geocoder_options[:through].nil?
+
+            unless geocoder_options[:through_tables].nil?
+              tbls = geocoder_options[:through_tables]
+            else
+              through_ars = []
+              through = geocoder_options[:through]
+              while !through.nil? do
+                through_ars << through
+                through = through.klass.geocoder_options[:through]
+              end
+
+              tbls = through_ars.pop.name
+              through_ars.reverse.each do |ar|
+                tbls = { ar.name => tbls }
+              end
+
+              geocoder_options.merge!(:through_tables => tbls)
+            end
+          end
+          tbls
+        end
+
         # scope: joins table if necessary
         scope :joins_through, lambda {
-          joins(geocoder_options[:through].name) unless geocoder_options[:through].nil?
+          joins(through_tables) unless geocoder_options[:through].nil?
         }
 
         # scope: geocoded objects
@@ -33,6 +58,7 @@ module Geocoder::Store
             "AND #{geocoder_options[:longitude]} IS NULL")
         }
 
+
         ##
         # Find all objects within a radius of the given location.
         # Location may be either a string to geocode or an array of
@@ -41,6 +67,10 @@ module Geocoder::Store
         # for details).
         #
         scope :near, lambda{ |location, *args|
+
+          # init through path for near_scope_options function
+          through_tables
+
           latitude, longitude = Geocoder::Calculations.extract_coordinates(location)
           if Geocoder::Calculations.coordinates_present?(latitude, longitude)
             near_scope_options(latitude, longitude, *args).joins_through
@@ -63,8 +93,8 @@ module Geocoder::Store
           if sw_lat && sw_lng && ne_lat && ne_lng
             joins_through.where(Geocoder::Sql.within_bounding_box(
               sw_lat, sw_lng, ne_lat, ne_lng,
-              full_column_name(geocoder_options[:latitude], geocoder_options[:through]),
-              full_column_name(geocoder_options[:longitude], geocoder_options[:through])
+              full_column_name(geocoder_options[:latitude], geocoder_options[:through_tables]),
+              full_column_name(geocoder_options[:longitude], geocoder_options[:through_tables])
             ))
           else
             joins_through.select(select_clause(nil, "NULL", "NULL")).where(false_condition)
@@ -119,8 +149,8 @@ module Geocoder::Store
 
         b = Geocoder::Calculations.bounding_box([latitude, longitude], radius, options)
         args = b + [
-          full_column_name(geocoder_options[:latitude], geocoder_options[:through]),
-          full_column_name(geocoder_options[:longitude], geocoder_options[:through])
+          full_column_name(geocoder_options[:latitude], geocoder_options[:through_tables]),
+          full_column_name(geocoder_options[:longitude], geocoder_options[:through_tables])
         ]
         bounding_box_conditions = Geocoder::Sql.within_bounding_box(*args)
 
@@ -131,7 +161,7 @@ module Geocoder::Store
         end
 
         select(select_clause(options[:select], select_distance ? distance : nil, select_bearing ? bearing : nil))
-          .where(add_exclude_condition(conditions, options[:exclude]))        
+          .where(add_exclude_condition(conditions, options[:exclude]))
           .order(options.include?(:order) ? options[:order] : "distance ASC")
       end
 
@@ -144,8 +174,8 @@ module Geocoder::Store
         Geocoder::Sql.send(
           method_prefix + "_distance",
           latitude, longitude,
-          full_column_name(geocoder_options[:latitude], geocoder_options[:through]),
-          full_column_name(geocoder_options[:longitude], geocoder_options[:through]),
+          full_column_name(geocoder_options[:latitude], geocoder_options[:through_tables]),
+          full_column_name(geocoder_options[:longitude], geocoder_options[:through_tables]),
           options
         )
       end
@@ -163,8 +193,8 @@ module Geocoder::Store
           Geocoder::Sql.send(
             method_prefix + "_bearing",
             latitude, longitude,
-            full_column_name(geocoder_options[:latitude], geocoder_options[:through]),
-            full_column_name(geocoder_options[:longitude], geocoder_options[:through]),
+            full_column_name(geocoder_options[:latitude], geocoder_options[:through_tables]),
+            full_column_name(geocoder_options[:longitude], geocoder_options[:through_tables]),
             options
           )
         end
@@ -184,8 +214,8 @@ module Geocoder::Store
           else
             clause_arr = [full_column_name('*')]
             unless geocoder_options[:through].nil?
-              clause_arr << full_column_name(geocoder_options[:latitude], geocoder_options[:through])
-              clause_arr << full_column_name(geocoder_options[:longitude], geocoder_options[:through])
+              clause_arr << full_column_name(geocoder_options[:latitude], geocoder_options[:through_tables])
+              clause_arr << full_column_name(geocoder_options[:longitude], geocoder_options[:through_tables])
             end
             clause = clause_arr.join(',')
           end
@@ -226,11 +256,18 @@ module Geocoder::Store
       end
 
       ##
+      # Retrieve last table joined, to extract latitude informations
+      #
+      def last_through_table(obj)
+        obj.is_a?(Hash) ? last_through_table(obj.flatten.last) : obj
+      end
+
+      ##
       # Prepend table name if column name doesn't already contain one.
       #
-      def full_column_name(column, through_table = nil)
+      def full_column_name(column, through_tables = nil)
         column = column.to_s
-        through_table_name = through_table.nil? ? table_name : through_table.name.to_s.pluralize
+        through_table_name = through_tables.nil? ? table_name : last_through_table(through_tables).to_s.pluralize
         column.include?(".") ? column : [through_table_name, column].join(".")
       end
     end
