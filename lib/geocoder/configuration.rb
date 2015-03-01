@@ -85,21 +85,20 @@ module Geocoder
     end
 
     def set_defaults
-
       # geocoding options
-      @data[:timeout]      = 3           # geocoding service timeout (secs)
-      @data[:lookup]       = :google     # name of street address geocoding service (symbol)
-      @data[:ip_lookup]    = :freegeoip  # name of IP address geocoding service (symbol)
-      @data[:language]     = :en         # ISO-639 language code
-      @data[:http_headers] = {}          # HTTP headers for lookup
-      @data[:use_https]    = false       # use HTTPS for lookup requests? (if supported)
-      @data[:http_proxy]   = nil         # HTTP proxy server (user:pass@host:port)
-      @data[:https_proxy]  = nil         # HTTPS proxy server (user:pass@host:port)
-      @data[:api_key]      = nil         # API key for geocoding service
-      @data[:cache]        = nil         # cache object (must respond to #[], #[]=, and #keys)
-      @data[:cache_prefix] = "geocoder:" # prefix (string) to use for all cache keys
-      @data[:basic_auth]   = {}          # user and password for basic auth ({:user => "user", :password => "password"})
-      @data[:logger]       = :kernel     # :kernel or Logger instance
+      @data[:timeout]             = 3           # geocoding service timeout (secs)
+      @data[:lookup]              = :google     # name of street address geocoding service (symbol)
+      @data[:ip_lookup]           = :freegeoip  # name of IP address geocoding service (symbol)
+      @data[:language]            = :en         # ISO-639 language code
+      @data[:http_headers]        = {}          # HTTP headers for lookup
+      @data[:use_https]           = false       # use HTTPS for lookup requests? (if supported)
+      @data[:http_proxy]          = nil         # HTTP proxy server (user:pass@host:port)
+      @data[:https_proxy]         = nil         # HTTPS proxy server (user:pass@host:port)
+      @data[:api_key]             = nil         # API key for geocoding service
+      @data[:cache]               = nil         # cache object (must respond to #[], #[]=, and #keys)
+      @data[:cache_prefix]        = "geocoder:" # prefix (string) to use for all cache keys
+      @data[:basic_auth]          = {}          # user and password for basic auth ({:user => "user", :password => "password"})
+      @data[:logger]              = :kernel     # :kernel or Logger instance
 
       # exceptions that should not be rescued by default
       # (if you want to implement custom error handling);

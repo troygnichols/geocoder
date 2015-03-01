@@ -20,45 +20,51 @@ module Geocoder
     # All street address lookup services, default first.
     #
     def street_services
-      @street_services ||= [
-        :dstk,
-        :esri,
-        :google,
-        :google_premier,
-        :google_places_details,
-        :yahoo,
-        :bing,
-        :geocoder_ca,
-        :geocoder_us,
-        :yandex,
-        :nominatim,
-        :mapquest,
-        :opencagedata,
-        :ovi,
-        :here,
-        :baidu,
-        :geocodio,
-        :smarty_streets,
-        :okf,
-        :postcode_anywhere_uk,
-        :test
-      ]
+      @street_services ||= begin
+        street_services = [
+          :dstk,
+          :esri,
+          :google,
+          :google_premier,
+          :google_places_details,
+          :yahoo,
+          :bing,
+          :geocoder_ca,
+          :geocoder_us,
+          :yandex,
+          :nominatim,
+          :mapquest,
+          :opencagedata,
+          :ovi,
+          :here,
+          :baidu,
+          :geocodio,
+          :smarty_streets,
+          :okf,
+          :postcode_anywhere_uk,
+          :test
+        ]
+        merge_lookups(street_services, Geocoder::Configuration.lookup)
+      end
     end
 
     ##
     # All IP address lookup services, default first.
     #
     def ip_services
-      @ip_services ||= [
-        :baidu_ip,
-        :freegeoip,
-        :geoip2,
-        :maxmind,
-        :maxmind_local,
-        :telize,
-        :pointpin,
-        :maxmind_geoip2
-      ]
+      @ip_services ||= begin
+        ip_services = [
+          :baidu_ip,
+          :freegeoip,
+          :geoip2,
+          :maxmind,
+          :maxmind_local,
+          :telize,
+          :pointpin,
+          :maxmind_geoip2
+        ]
+        merge_lookups(ip_services, Geocoder::Configuration.ip_lookup)
+      end
     end
 
     attr_writer :street_services, :ip_services
@@ -78,16 +84,27 @@ module Geocoder
     private # -----------------------------------------------------------------
 
     ##
+    # Merge base lookups and custom configured ones
+    #
+    def merge_lookups(included_services, configured_services)
+      services = included_services
+
+      custom_services = configured_services
+      custom_services = [custom_services] unless custom_services.is_a? Array
+      services = (custom_services + services).uniq
+
+      services
+    end
+
+    ##
     # Spawn a Lookup of the given name.
     #
     def spawn(name)
-      if all_services.include?(name)
-        Geocoder::Lookup.const_get(classify_name(name)).new
-      else
-        valids = all_services.map(&:inspect).join(", ")
-        raise ConfigurationError, "Please specify a valid lookup for Geocoder " +
-          "(#{name.inspect} is not one of: #{valids})."
-      end
+      Geocoder::Lookup.const_get(classify_name(name)).new
+    rescue NameError
+      valids = all_services.map(&:inspect).join(", ")
+      raise ConfigurationError, "Cannot instantiate #{name.inspect} geocoder.  " +
+        "Please make sure the 'lookup' config option is set to a valid type of gecoder, e.g. one of: #{valids}"
     end
 
     ##

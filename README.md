@@ -745,6 +745,88 @@ You must add either the *[hive_geoip2](https://rubygems.org/gems/hive_geoip2)* g
       }
     )
 
+#### Custom service (`:example`)
+
+
+Custom geololazation service
+----------------------------
+
+If you've geolocalization in your own database (like geonames.org), you may want to create a custom service for geocoder.
+That's the case in the following example, we want to search in a local database for geolocalization.
+
+Define your **Geocoder::Lookup** class to access the data
+
+    # lib/geocoder/lookup/geonames_dumped.rb
+    module Geocoder::Lookup
+      class GeonamesDumped < Base
+
+        private
+
+        def results(query)
+          # ... perform the search in your database
+          MyModel.where(...)
+          # or create a scope which separate country, city, ...
+          MyModel.search(...)
+        end
+
+      end
+    end
+
+Define your **Geocoder::Result** class to return the result in a standard way
+
+    # lib/geocoder/result/geonames_dumped.rb
+    module Geocoder::Result
+      class GeonamesDumped < Base
+
+        ##
+        # Add the methods to handle your data and return the appropriate fields
+        #
+
+        def coordinates
+        end
+
+        def address(format = :full)
+        end
+
+        def street_address
+        end
+
+        def city
+        end
+
+        def state
+        end
+
+        def state_code
+        end
+
+        def postal_code
+        end
+
+        def country
+        end
+
+        def country_code
+        end
+
+      end
+    end
+
+Select your new geocoding service in the configuration
+
+    # config/initializers/geocoder.rb
+    Geocoder.configure do |config|
+      # ...
+      config.lookup              = :geonames_dumped     # name of your custom geocoding service (symbol)
+      # ...
+    end
+
+If you're using Rails, do not forget to load your classes. To do this, simply add :
+
+    # config/application.rb
+    config.autoload_paths += %W(#{config.root}/lib)
+
+
 Caching
 -------
 
